@@ -1,14 +1,16 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout/Layout'
 import { useAuth } from '../context/auth';
 import { useCart } from '../context/cart'
 import axios from 'axios'
+import toast from "react-hot-toast";
 
 function CartPage() {
 
   const [accessToken, setaccessToken] = useAuth();
   const [cart, setCart] = useCart();
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
 
@@ -19,7 +21,8 @@ function CartPage() {
       cart?.map((item) => {
         total = total + item.price;
       });
-      return total
+      return(total)
+
       // return total.toLocaleString("en-IN", {
       //   style: "currency",
       //   currency: "INR",
@@ -28,6 +31,10 @@ function CartPage() {
       console.log(error);
     }
   };
+
+const amount = totalPrice()
+
+
   //detele item
   const removeCartItem = (pid) => {
     try {
@@ -41,41 +48,99 @@ function CartPage() {
     }
   };
 
-  const price = totalPrice()
-  console.log(price)
-
-
-  // payment checkout
-  const checkoutHandler = async (amount) => {
+  const checkoutHandler = async (amount , cart) => {
 
     const { data: { key } } = await axios.get("http://www.localhost:4000/api/getkey")
 
-    const price = totalPrice()
-    console.log(price)
+    const { data: { order } } = await axios.post("http://localhost:4000/api/payment/checkout", {
+        amount 
+    })
+
+    console.log(order)
 
     const options = {
-      key,
-      amount: price*100,
-      currency: "INR",
-      name: "6 Pack Programmer",
-      description: "Tutorial of RazorPay",
-      image: "https://avatars.githubusercontent.com/u/25058652?v=4",
-      callback_url: "http://localhost:4000/api/payment/paymentverification",
-      prefill: {
-        name: "Gaurav Kumar",
-        email: "gaurav.kumar@example.com",
-        contact: "9999999999"
-      },
-      notes: {
-        "address": "Razorpay Corporate Office"
-      },
-      theme: {
-        "color": "#121212"
-      }
+        key,
+        amount: order.amount,
+        currency: "INR",
+        name: "6 Pack Programmer",
+        description: "Tutorial of RazorPay",
+        image: "https://avatars.githubusercontent.com/u/25058652?v=4",
+        order_id: order.id,
+        handler: async (response ) => {
+          try {
+            const verifyUrl = "http://localhost:4000/api/payment/paymentverification";
+            const { data } = await axios.post(verifyUrl,  {response ,  cart });
+
+          } catch (error) {
+            console.log(error);
+          }
+        },
+        prefill: {
+            name: "Gaurav Kumar",
+            email: "gaurav.kumar@example.com",
+            contact: "9999999999"
+        },
+        notes: {
+            "address": "Razorpay Corporate Office"
+        },
+        theme: {
+            "color": "#121212"
+        }
     };
     const razor = new window.Razorpay(options);
     razor.open();
-  }
+}
+
+  // payment checkout
+  // const checkoutHandler = async (amount) => {
+
+  //   try {
+
+  //     setLoading(true);
+
+  //     const { data: { key } } = await axios.get("http://www.localhost:4000/api/getkey")
+
+  //     const { data: { order } } = await axios.post("http://localhost:4000/api/payment/checkout", {
+  //       amount
+  //   })
+
+
+  //   const options = {
+  //     key,
+  //     amount: order.amount,
+  //     currency: "INR",
+  //     name: "6 Pack Programmer",
+  //     description: "Tutorial of RazorPay",
+  //     image: "https://avatars.githubusercontent.com/u/25058652?v=4",
+  //     order_id: order.id,
+  //     callback_url: "http://localhost:4000/api/paymentverification",
+  //     prefill: {
+  //         name: "Gaurav Kumar",
+  //         email: "gaurav.kumar@example.com",
+  //         contact: "9999999999"
+  //     },
+  //     notes: {
+  //         "address": "Razorpay Corporate Office"
+  //     },
+  //     theme: {
+  //         "color": "#121212"
+  //     }
+  // };
+  // const razor = new window.Razorpay(options);
+  // razor.open();
+
+  //     setLoading(false);
+  //     localStorage.removeItem("cart");
+  //     setCart([]);
+  //     navigate("/dashboard/user/orders");
+  //     toast.success("Payment Completed Successfully ");
+
+  //   } catch (error) {
+  //     console.log(error);
+  //     setLoading(false);
+  //   }
+
+  // }
 
 
   return (
@@ -169,9 +234,9 @@ function CartPage() {
                 <>
                   <button
                     className="btn btn-primary"
-                    onClick={() => checkoutHandler()}
+                    onClick={() => checkoutHandler(amount , cart)}
                   >
-                    Make Payment
+                  {loading ? "Processing ...." : "Make Payment"}
                   </button>
                 </>
               )}
